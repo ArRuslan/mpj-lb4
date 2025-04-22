@@ -2,6 +2,7 @@ package ua.nure.mpj.lb4.commands;
 
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
@@ -15,14 +16,24 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+import ua.nure.mpj.lb4.entities.Group;
+import ua.nure.mpj.lb4.services.GroupService;
+import ua.nure.mpj.lb4.services.UserStateService;
 
 import static ua.nure.mpj.lb4.utils.IntUtil.parseIntOrZero;
 
 @Slf4j
 @Component
 public class GroupsCommand extends BotCommand {
-    public GroupsCommand() {
+    private static final int PAGE_SIZE = 10;
+
+    private final GroupService groupService;
+
+    @Autowired
+    public GroupsCommand(GroupService groupService) {
         super("groups", "List groups");
+
+        this.groupService = groupService;
     }
 
     public void processCommandOrCallbackQuery(TelegramClient client, Chat chat, int page, @Nullable MaybeInaccessibleMessage originMessage) {
@@ -31,14 +42,21 @@ public class GroupsCommand extends BotCommand {
                         .text("Create group")
                         .callbackData("create_group")
                         .build()
-        )).keyboardRow(new InlineKeyboardRow(
-                InlineKeyboardButton.builder()
-                        .text("[TODO: list groups]")
-                        .callbackData("manage_group_{SUBJECT_ID}")
-                        .build()
         ));
-        // TODO: replace with check for whether there is next page
-        if(true) {
+
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("[").append(page + 1).append("] Groups:\n");
+        for(Group group : groupService.list(page, PAGE_SIZE)) {
+            messageBuilder.append("- ").append(group.getName()).append("\n");
+            keyboardBuilder.keyboardRow(new InlineKeyboardRow(
+                    InlineKeyboardButton.builder()
+                            .text(group.getName())
+                            .callbackData("manage_group_"+group.getId())
+                            .build()
+            ));
+        }
+
+        if(groupService.count() > (long) PAGE_SIZE * (page + 1)) {
             keyboardBuilder.keyboardRow(new InlineKeyboardRow(
                     InlineKeyboardButton.builder()
                             .text("Next page ->")
@@ -55,22 +73,18 @@ public class GroupsCommand extends BotCommand {
             ));
         }
 
-        String messageText = String.format("""
-                [%d] Groups:
-                - [TODO: list groups]""", page + 1);
-
         BotApiMethod<?> request;
         if(originMessage == null) {
             request = SendMessage.builder()
                     .chatId(chat.getId())
-                    .text(messageText)
+                    .text(messageBuilder.toString())
                     .replyMarkup(keyboardBuilder.build())
                     .build();
         } else {
             request = EditMessageText.builder()
                     .chatId(chat.getId())
                     .messageId(originMessage.getMessageId())
-                    .text(messageText)
+                    .text(messageBuilder.toString())
                     .replyMarkup(keyboardBuilder.build())
                     .build();
         }

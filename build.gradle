@@ -29,6 +29,8 @@ dependencies {
     implementation 'org.springframework:spring-context-indexer'
     implementation 'org.hibernate:hibernate-core:6.6.11.Final'
 
+    runtimeOnly 'org.postgresql:postgresql'
+
     implementation 'org.telegram:telegrambots-longpolling:8.0.0'
     implementation 'org.telegram:telegrambots-springboot-longpolling-starter:8.0.0'
     implementation 'org.telegram:telegrambots-client:8.0.0'

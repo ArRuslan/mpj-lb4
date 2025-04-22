@@ -8,7 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
-import ua.nure.mpj.lb3.callbacks.CalendarCallback;
+import ua.nure.mpj.lb4.callbacks.CalendarCallback;
 
 @Slf4j
 @Component
