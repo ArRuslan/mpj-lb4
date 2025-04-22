@@ -1,4 +1,4 @@
-package ua.nure.mpj.lb3.callbacks;
+package ua.nure.mpj.lb4.callbacks;
 
 import lombok.extern.slf4j.Slf4j;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;

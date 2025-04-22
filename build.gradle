@@ -25,6 +25,9 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework:spring-context-indexer'
+    implementation 'org.hibernate:hibernate-core:6.6.11.Final'
 
     implementation 'org.telegram:telegrambots-longpolling:8.0.0'
     implementation 'org.telegram:telegrambots-springboot-longpolling-starter:8.0.0'

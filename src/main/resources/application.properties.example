@@ -1,3 +1,11 @@
-spring.application.name=mpj-lb3
+spring.application.name=mpj-lb4
 
 botToken=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef
+
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.url=jdbc:postgresql://127.0.0.1:5432/mpj-lb1
+spring.datasource.username=mpj
+spring.datasource.password=123456789
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.generate-ddl=true
+spring.jpa.hibernate.ddl-auto=update

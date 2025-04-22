@@ -1,4 +1,4 @@
-package ua.nure.mpj.lb3;
+package ua.nure.mpj.lb4;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
-public class Lb3BotConfiguration {
+public class Lb4BotConfiguration {
     @Bean
     public TelegramClient telegramClient(@Value("${botToken}") String botToken) {
         return new OkHttpTelegramClient(botToken);

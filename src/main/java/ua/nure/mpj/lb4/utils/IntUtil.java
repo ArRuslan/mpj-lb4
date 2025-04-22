@@ -1,4 +1,4 @@
-package ua.nure.mpj.lb3.utils;
+package ua.nure.mpj.lb4.utils;
 
 public class IntUtil {
     public static int parseIntOrZero(String page) {
