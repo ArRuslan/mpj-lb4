@@ -15,10 +15,7 @@ import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessa
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
-import ua.nure.mpj.lb4.callbacks.CalendarCallback;
-import ua.nure.mpj.lb4.callbacks.CreateUpdateGroupCallback;
-import ua.nure.mpj.lb4.callbacks.CreateSubjectCallback;
-import ua.nure.mpj.lb4.callbacks.ManageGroupCallback;
+import ua.nure.mpj.lb4.callbacks.*;
 import ua.nure.mpj.lb4.commands.GroupsCommand;
 import ua.nure.mpj.lb4.commands.ScheduleCommand;
 import ua.nure.mpj.lb4.commands.StartCommand;
@@ -47,6 +44,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
 
     private final CreateUpdateGroupCallback createUpdateGroupCallback;
     private final ManageGroupCallback manageGroupCallback;
+    private final ManageSubjectCallback manageSubjectCallback;
     private final CreateSubjectCallback createSubjectCallback;
 
     private final GroupService groupService;
@@ -63,6 +61,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
             CreateUpdateGroupCallback createUpdateGroupCallback,
             CreateSubjectCallback createSubjectCallback,
             ManageGroupCallback manageGroupCallback,
+            ManageSubjectCallback manageSubjectCallback,
             GroupService groupService,
             SubjectService subjectService,
             UserStateService userStateService) {
@@ -78,6 +77,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
 
         this.createUpdateGroupCallback = createUpdateGroupCallback;
         this.manageGroupCallback = manageGroupCallback;
+        this.manageSubjectCallback = manageSubjectCallback;
         this.createSubjectCallback = createSubjectCallback;
 
         this.groupService = groupService;
@@ -172,6 +172,31 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                 return;
             }
 
+            if(data.startsWith("manage_subject_")) {
+                manageSubjectCallback.execute(telegramClient, chat, parseIntOrZero(data.substring(15)), originMessage);
+                return;
+            }
+
+            if(data.startsWith("update_subject_")) {
+                boolean shortName = data.startsWith("update_subject_short_");
+                int subjectIdOffset = shortName ? 21 : 15;
+                UserState.State actionState = shortName ? UserState.State.WAITING_FOR_SUBJECT_SHORT_NAME : UserState.State.WAITING_FOR_SUBJECT_NAME;
+
+                String subjectIdStr = String.valueOf(parseIntOrZero(data.substring(subjectIdOffset)));
+                userStateService.setState(user.getId(), UserState.Action.UPDATE_SUBJECT, actionState, subjectIdStr);
+
+                sendMessage(telegramClient, chat.getId(), shortName ? "Send subject short name: " : "Send subject name: ");
+                return;
+            }
+
+            if(data.startsWith("delete_subject_")) {
+                long subjectId = parseIntOrZero(data.substring(15));
+                subjectService.deleteById(subjectId);
+                sendMessage(telegramClient, chat.getId(), "Subject deleted");
+                userStateService.deleteById(user.getId());
+                return;
+            }
+
             log.info("Unknown callback query data!");
             return;
         }
@@ -234,6 +259,38 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                     userStateService.deleteById(user.getId());
                     return;
                 }
+                break;
+            }
+            case UPDATE_SUBJECT: {
+                if(parseIntOrZero(state.get().getData()) == 0) {
+                    sendMessage(telegramClient, chat.getId(), "Invalid state, please try again");
+                    return;
+                }
+
+                Optional<Subject> subjectOpt = subjectService.get(parseIntOrZero(state.get().getData()));
+                if(subjectOpt.isEmpty()) {
+                    sendMessage(telegramClient, chat.getId(), "Subject does not exist!");
+                    return;
+                }
+
+                Subject subject = subjectOpt.get();
+
+                if(state.get().getState() == UserState.State.WAITING_FOR_SUBJECT_NAME) {
+                    subject.setName(message.getText());
+                    subjectService.save(subject);
+
+                    sendMessage(telegramClient, chat.getId(), "Subject name updated: " + subject.getName());
+                    userStateService.deleteById(user.getId());
+                } else if(state.get().getState() == UserState.State.WAITING_FOR_SUBJECT_SHORT_NAME) {
+                    subject.setShortName(message.getText());
+                    subjectService.save(subject);
+
+                    sendMessage(telegramClient, chat.getId(), "Subject short name updated: " + subject.getShortName());
+                    userStateService.deleteById(user.getId());
+                } else {
+                    sendMessage(telegramClient, chat.getId(), "Invalid state, please try again");
+                }
+                userStateService.deleteById(user.getId());
                 break;
             }
         }

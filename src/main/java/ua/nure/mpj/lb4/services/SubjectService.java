@@ -36,4 +36,8 @@ public class SubjectService {
     public void deleteById(long id) {
         subjectRepository.deleteById(id);
     }
+
+    public long count() {
+        return subjectRepository.count();
+    }
 }
