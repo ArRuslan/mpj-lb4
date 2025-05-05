@@ -21,9 +21,14 @@ public class UserState {
 
     public enum Action {
         CREATE_GROUP,
+        UPDATE_GROUP,
+        CREATE_SUBJECT,
+        UPDATE_SUBJECT,
     }
 
     public enum State {
         WAITING_FOR_GROUP_NAME,
+        WAITING_FOR_SUBJECT_NAME,
+        WAITING_FOR_SUBJECT_SHORT_NAME,
     }
 }

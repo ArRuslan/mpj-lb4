@@ -25,7 +25,7 @@ public class SubjectsCommand extends BotCommand {
         super("subjects", "List subjects");
     }
 
-    public void processCommandOrCallbackQuery(TelegramClient client, Chat chat, int page, @Nullable MaybeInaccessibleMessage originMessage) {
+    public void processCommandOrCallbackQuery(TelegramClient client, Chat chat, long page, @Nullable MaybeInaccessibleMessage originMessage) {
         InlineKeyboardMarkup.InlineKeyboardMarkupBuilder keyboardBuilder = InlineKeyboardMarkup.builder().keyboardRow(new InlineKeyboardRow(
                 InlineKeyboardButton.builder()
                         .text("Create subject")

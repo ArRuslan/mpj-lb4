@@ -21,9 +21,9 @@ public class CalendarCallback {
     private static final SimpleDateFormat MONTH_YEAR_FMT = new SimpleDateFormat("MMMMM yyyy");
     private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd.MM.yyyy");
 
-    public static void processCommandOrCallbackQuery(TelegramClient client, Chat chat, int monthOffset, MaybeInaccessibleMessage originMessage) {
+    public static void processCommandOrCallbackQuery(TelegramClient client, Chat chat, long monthOffset, MaybeInaccessibleMessage originMessage) {
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.MONTH, monthOffset);
+        calendar.add(Calendar.MONTH, (int)monthOffset);
         calendar.set(Calendar.DAY_OF_MONTH, 1);
 
         InlineKeyboardMarkup.InlineKeyboardMarkupBuilder keyboardBuilder = InlineKeyboardMarkup.builder();

@@ -13,16 +13,17 @@ import static ua.nure.mpj.lb4.utils.SendMessageUtil.sendMessage;
 
 @Slf4j
 @Component
-public class CreateSubjectCallback {
+public class CreateUpdateGroupCallback {
     private final UserStateService userStateService;
 
     @Autowired
-    public CreateSubjectCallback(UserStateService userStateService) {
+    public CreateUpdateGroupCallback(UserStateService userStateService) {
         this.userStateService = userStateService;
     }
 
-    public void execute(TelegramClient client, Chat chat, User user) {
-        userStateService.setState(user.getId(), UserState.Action.CREATE_SUBJECT, UserState.State.WAITING_FOR_SUBJECT_NAME, null);
-        sendMessage(client, chat.getId(), "Send subject name: ");
+    public void execute(TelegramClient client, Chat chat, User user, UserState.Action newState, String groupId) {
+        userStateService.setState(user.getId(), newState, UserState.State.WAITING_FOR_GROUP_NAME, groupId);
+
+        sendMessage(client, chat.getId(), "Send group name: ");
     }
 }
