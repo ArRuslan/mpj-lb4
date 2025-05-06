@@ -50,6 +50,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
     private final ManageSubjectCallback manageSubjectCallback;
     private final CreateSubjectCallback createSubjectCallback;
     private final CreateScheduleCallback createScheduleCallback;
+    private final ViewScheduleCallback viewScheduleCallback;
 
     private final GroupService groupService;
     private final SubjectService subjectService;
@@ -68,6 +69,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
             ManageGroupCallback manageGroupCallback,
             ManageSubjectCallback manageSubjectCallback,
             CreateScheduleCallback createScheduleCallback,
+            ViewScheduleCallback viewScheduleCallback,
             GroupService groupService,
             SubjectService subjectService,
             UserStateService userStateService,
@@ -87,6 +89,7 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
         this.manageSubjectCallback = manageSubjectCallback;
         this.createSubjectCallback = createSubjectCallback;
         this.createScheduleCallback = createScheduleCallback;
+        this.viewScheduleCallback = viewScheduleCallback;
 
         this.groupService = groupService;
         this.subjectService = subjectService;
@@ -199,19 +202,27 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                 Optional<UserState> stateOpt = userStateService.get(user.getId());
                 if (stateOpt.isEmpty())
                     return;
-                UserState state = stateOpt.get();
-                if(state.getAction() != UserState.Action.CREATE_SCHEDULE || state.getState() != UserState.State.WAITING_FOR_SCHEDULE_DATE)
-                    return;
-
+                long dateMillis;
                 try {
                     Date date = CalendarCallback.DATE_FMT.parse(data.substring(9));
-                    state.setState(UserState.State.WAITING_FOR_SCHEDULE_POSITION);
-                    state.setData(state.getData() + ";" + date.getTime());
-                    userStateService.save(state);
-                    sendMessage(telegramClient, chat.getId(), "Send schedule item position (1-7): ");
+                    dateMillis = date.getTime();
                 } catch (ParseException e) {
                     sendMessage(telegramClient, chat.getId(), "Invalid date ?");
+                    return;
                 }
+
+                UserState state = stateOpt.get();
+                if(state.getAction() == UserState.Action.CREATE_SCHEDULE && state.getState() == UserState.State.WAITING_FOR_SCHEDULE_DATE) {
+                    state.setState(UserState.State.WAITING_FOR_SCHEDULE_POSITION);
+                    state.setData(state.getData() + ";" + dateMillis);
+                    userStateService.save(state);
+                    sendMessage(telegramClient, chat.getId(), "Send schedule item position (1-7): ");
+                } else if(state.getAction() == UserState.Action.VIEW_SCHEDULE && state.getState() == UserState.State.WAITING_FOR_SCHEDULE_DATE) {
+                    viewScheduleCallback.execute(telegramClient, chat, parseLongOrZero(state.getData()), new java.sql.Date(dateMillis), originMessage);
+                    userStateService.deleteById(user.getId());
+                    return;
+                }
+
                 return;
             }
 

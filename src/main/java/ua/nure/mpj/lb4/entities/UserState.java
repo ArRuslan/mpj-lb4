@@ -25,6 +25,7 @@ public class UserState {
         CREATE_SUBJECT,
         UPDATE_SUBJECT,
         CREATE_SCHEDULE,
+        VIEW_SCHEDULE,
     }
 
     public enum State {

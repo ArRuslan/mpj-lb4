@@ -9,6 +9,7 @@ import ua.nure.mpj.lb4.entities.Group;
 import ua.nure.mpj.lb4.entities.ScheduleItem;
 import ua.nure.mpj.lb4.repositories.ScheduleItemRepository;
 
+import java.sql.Date;
 import java.util.Optional;
 
 @Service
@@ -28,6 +29,10 @@ public class ScheduleItemService {
 
     public Page<ScheduleItem> list(Group group, int page, int pageSize) {
         return scheduleItemRepository.findAllByGroup(group, PageRequest.of(page, pageSize, SORT_BY_ID_ASC));
+    }
+
+    public Page<ScheduleItem> list(Group group, Date date, int page, int pageSize) {
+        return scheduleItemRepository.findAllByGroupAndDate(group, date, PageRequest.of(page, pageSize, SORT_BY_ID_ASC));
     }
 
     public Optional<ScheduleItem> get(long id) {
