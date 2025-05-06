@@ -8,4 +8,12 @@ public class IntUtil {
             return 0;
         }
     }
+
+    public static long parseLongOrZero(String page) {
+        try {
+            return Long.parseLong(page);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
 }

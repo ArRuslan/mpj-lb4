@@ -40,4 +40,8 @@ public class GroupService {
     public long count() {
         return groupRepository.count();
     }
+
+    public Optional<Group> findByName(String name) {
+        return groupRepository.findByNameEquals(name);
+    }
 }

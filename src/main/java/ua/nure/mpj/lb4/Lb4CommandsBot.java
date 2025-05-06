@@ -7,13 +7,11 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.CommandLongPollingTelegramBot;
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 import ua.nure.mpj.lb4.callbacks.*;
 import ua.nure.mpj.lb4.commands.GroupsCommand;
@@ -21,15 +19,20 @@ import ua.nure.mpj.lb4.commands.ScheduleCommand;
 import ua.nure.mpj.lb4.commands.StartCommand;
 import ua.nure.mpj.lb4.commands.SubjectsCommand;
 import ua.nure.mpj.lb4.entities.Group;
+import ua.nure.mpj.lb4.entities.ScheduleItem;
 import ua.nure.mpj.lb4.entities.Subject;
 import ua.nure.mpj.lb4.entities.UserState;
 import ua.nure.mpj.lb4.services.GroupService;
+import ua.nure.mpj.lb4.services.ScheduleItemService;
 import ua.nure.mpj.lb4.services.SubjectService;
 import ua.nure.mpj.lb4.services.UserStateService;
 
+import java.text.ParseException;
+import java.util.Date;
 import java.util.Optional;
 
 import static ua.nure.mpj.lb4.utils.IntUtil.parseIntOrZero;
+import static ua.nure.mpj.lb4.utils.IntUtil.parseLongOrZero;
 import static ua.nure.mpj.lb4.utils.SendMessageUtil.sendMessage;
 
 @Slf4j
@@ -46,10 +49,12 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
     private final ManageGroupCallback manageGroupCallback;
     private final ManageSubjectCallback manageSubjectCallback;
     private final CreateSubjectCallback createSubjectCallback;
+    private final CreateScheduleCallback createScheduleCallback;
 
     private final GroupService groupService;
     private final SubjectService subjectService;
     private final UserStateService userStateService;
+    private final ScheduleItemService scheduleItemService;
 
     public Lb4CommandsBot(
             @Qualifier("telegramClient") TelegramClient telegramClient,
@@ -62,9 +67,11 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
             CreateSubjectCallback createSubjectCallback,
             ManageGroupCallback manageGroupCallback,
             ManageSubjectCallback manageSubjectCallback,
+            CreateScheduleCallback createScheduleCallback,
             GroupService groupService,
             SubjectService subjectService,
-            UserStateService userStateService) {
+            UserStateService userStateService,
+            ScheduleItemService scheduleItemService) {
         super(telegramClient, false, () -> {
             return "";
         });
@@ -79,10 +86,12 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
         this.manageGroupCallback = manageGroupCallback;
         this.manageSubjectCallback = manageSubjectCallback;
         this.createSubjectCallback = createSubjectCallback;
+        this.createScheduleCallback = createScheduleCallback;
 
         this.groupService = groupService;
         this.subjectService = subjectService;
         this.userStateService = userStateService;
+        this.scheduleItemService = scheduleItemService;
 
         registerAll(startCommand, groupsCommand, subjectsCommand, scheduleCommand);
     }
@@ -137,23 +146,6 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                 return;
             }
 
-            if (data.startsWith("date_sel_")) {
-                String date = data.substring(9);
-                // TODO: save to user state
-                try {
-                    telegramClient.execute(
-                            EditMessageText.builder()
-                                    .chatId(chat.getId())
-                                    .text("Selected date: " + date)
-                                    .messageId(originMessage.getMessageId())
-                                    .build()
-                    );
-                } catch (TelegramApiException e) {
-                    log.error("Couldn't invoke SendMessage!");
-                }
-                return;
-            }
-
             if(data.startsWith("manage_group_")) {
                 manageGroupCallback.execute(telegramClient, chat, parseIntOrZero(data.substring(13)), originMessage);
                 return;
@@ -194,6 +186,32 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                 subjectService.deleteById(subjectId);
                 sendMessage(telegramClient, chat.getId(), "Subject deleted");
                 userStateService.deleteById(user.getId());
+                return;
+            }
+
+            if(data.startsWith("create_schedule")) {
+                // TODO: allow to pass group id like create_schedule_{GROUP_ID}
+                createScheduleCallback.execute(telegramClient, chat, user);
+                return;
+            }
+
+            if(data.startsWith("date_sel_")) {
+                Optional<UserState> stateOpt = userStateService.get(user.getId());
+                if (stateOpt.isEmpty())
+                    return;
+                UserState state = stateOpt.get();
+                if(state.getAction() != UserState.Action.CREATE_SCHEDULE || state.getState() != UserState.State.WAITING_FOR_SCHEDULE_DATE)
+                    return;
+
+                try {
+                    Date date = CalendarCallback.DATE_FMT.parse(data.substring(9));
+                    state.setState(UserState.State.WAITING_FOR_SCHEDULE_POSITION);
+                    state.setData(state.getData() + ";" + date.getTime());
+                    userStateService.save(state);
+                    sendMessage(telegramClient, chat.getId(), "Send schedule item position (1-7): ");
+                } catch (ParseException e) {
+                    sendMessage(telegramClient, chat.getId(), "Invalid date ?");
+                }
                 return;
             }
 
@@ -291,6 +309,82 @@ public class Lb4CommandsBot extends CommandLongPollingTelegramBot implements Spr
                     sendMessage(telegramClient, chat.getId(), "Invalid state, please try again");
                 }
                 userStateService.deleteById(user.getId());
+                break;
+            }
+            case CREATE_SCHEDULE: {
+                if(state.get().getState() == UserState.State.WAITING_FOR_SCHEDULE_GROUP_NAME) {
+                    Optional<Group> group = groupService.findByName(message.getText());
+                    if(group.isEmpty()) {
+                        sendMessage(telegramClient, chat.getId(), "Group does not exist!");
+                        return;
+                    }
+
+                    UserState userState = state.get();
+                    userState.setState(UserState.State.WAITING_FOR_SCHEDULE_SUBJECT_NAME);
+                    userState.setData(String.valueOf(group.get().getId()));
+                    userStateService.save(userState);
+                    sendMessage(telegramClient, chat.getId(), "Send subject short name: ");
+                } else if(state.get().getState() == UserState.State.WAITING_FOR_SCHEDULE_SUBJECT_NAME) {
+                    Optional<Subject> subject = subjectService.findByShortName(message.getText());
+                    if (subject.isEmpty()) {
+                        sendMessage(telegramClient, chat.getId(), "Subject does not exist!");
+                        return;
+                    }
+
+                    UserState userState = state.get();
+                    userState.setState(UserState.State.WAITING_FOR_SCHEDULE_DATE);
+                    userState.setData(userState.getData() + ";" + subject.get().getId());
+                    userStateService.save(userState);
+                    sendMessage(telegramClient, chat.getId(), "Send subject short name: ");
+
+                    CalendarCallback.processCommandOrCallbackQuery(telegramClient, chat, 0, null);
+                } else if(state.get().getState() == UserState.State.WAITING_FOR_SCHEDULE_POSITION) {
+                    int pos = parseIntOrZero(message.getText());
+                    if(pos <= 0 || pos > 7) {
+                        sendMessage(telegramClient, chat.getId(), "Invalid position! Only numbers 1-7 are allowed.");
+                        return;
+                    }
+
+                    UserState userState = state.get();
+                    userState.setState(UserState.State.WAITING_FOR_SCHEDULE_TYPE);
+                    userState.setData(userState.getData() + ";" + pos);
+                    userStateService.save(userState);
+                    sendMessage(telegramClient, chat.getId(), "Send schedule item type (LECTURE/PRACTICE/LAB/EXAM): ");
+                } else if(state.get().getState() == UserState.State.WAITING_FOR_SCHEDULE_TYPE) {
+                    ScheduleItem.Type type;
+                    try {
+                        type = ScheduleItem.Type.valueOf(message.getText());
+                    } catch (IllegalArgumentException ignored) {
+                        sendMessage(telegramClient, chat.getId(), "Invalid type! Allowed values: LECTURE/PRACTICE/LAB/EXAM.");
+                        return;
+                    }
+
+                    String[] args = state.get().getData().split(";");
+                    if(args.length != 4) {
+                        sendMessage(telegramClient, chat.getId(), "Invalid state, please try again");
+                        userStateService.deleteById(user.getId());
+                        return;
+                    }
+
+                    Optional<Group> group = groupService.get(parseIntOrZero(args[0]));
+                    Optional<Subject> subject = subjectService.get(parseIntOrZero(args[1]));
+                    if(group.isEmpty() || subject.isEmpty()) {
+                        sendMessage(telegramClient, chat.getId(), "Invalid state (group or subject does not exist anymore), please try again");
+                        userStateService.deleteById(user.getId());
+                        return;
+                    }
+
+                    java.sql.Date date = new java.sql.Date(parseLongOrZero(args[2]));
+
+                    scheduleItemService.save(new ScheduleItem(group.get(), subject.get(), date, (byte)parseIntOrZero(args[3]), type));
+                    sendMessage(telegramClient, chat.getId(), "Schedule item created!");
+
+                    userStateService.deleteById(user.getId());
+                } else {
+                    sendMessage(telegramClient, chat.getId(), "Invalid state, please try again");
+                    userStateService.deleteById(user.getId());
+                    return;
+                }
                 break;
             }
         }

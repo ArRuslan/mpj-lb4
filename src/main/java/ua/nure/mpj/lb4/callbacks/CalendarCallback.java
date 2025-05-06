@@ -19,7 +19,7 @@ import java.util.Calendar;
 public class CalendarCallback {
     private static final String[] WEEK_DAYS = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
     private static final SimpleDateFormat MONTH_YEAR_FMT = new SimpleDateFormat("MMMMM yyyy");
-    private static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd.MM.yyyy");
+    public static final SimpleDateFormat DATE_FMT = new SimpleDateFormat("dd.MM.yyyy");
 
     public static void processCommandOrCallbackQuery(TelegramClient client, Chat chat, long monthOffset, MaybeInaccessibleMessage originMessage) {
         Calendar calendar = Calendar.getInstance();

@@ -51,6 +51,12 @@ public class StartCommand extends BotCommand {
                                                     .callbackData("create_subject")
                                                     .build()
                                     ))
+                                    .keyboardRow(new InlineKeyboardRow(
+                                            InlineKeyboardButton.builder()
+                                                    .text("Create schedule")
+                                                    .callbackData("create_schedule")
+                                                    .build()
+                                    ))
                                     .build())
                             .build()
             );

@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import ua.nure.mpj.lb4.entities.Group;
 import ua.nure.mpj.lb4.entities.Subject;
 import ua.nure.mpj.lb4.repositories.SubjectRepository;
 
@@ -39,5 +40,9 @@ public class SubjectService {
 
     public long count() {
         return subjectRepository.count();
+    }
+
+    public Optional<Subject> findByShortName(String name) {
+        return subjectRepository.findByShortNameEquals(name);
     }
 }
